@@ -1,4 +1,6 @@
 #include <WiFi.h>
+#include <HTTPClient.h>;
+#include <ArduinoJson.h>;
 #include <ESPmDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
@@ -169,10 +171,42 @@ void checkOTA() {
   }
 }
 
+String postData(int io, String msg = "") {
+  HTTPClient http;
+  http.begin(BACKEND_URL);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Authorization", "Bearer " + String(JWT_TOKEN));
+
+  String data = "{" \
+                  "\"data\":{" \
+                      "\"boardName\": \"" + String(BOARD_NAME) + "\"," \
+                      "\"IO\": \"" + String(io) + "\"," \
+                      "\"message\": \"" + msg + "\"" \
+                  "}," \
+                  "\"notify\": true " \
+              "}";
+  int httpCode = http.POST(data);
+
+  if (httpCode > 0) {
+    String payload = http.getString();
+    StaticJsonDocument<256> doc;
+    DeserializationError err = deserializeJson(doc, payload);
+
+    if (err) return "ERROR: " + String(httpCode) + " - " +  err.c_str();
+
+    return doc["message"];
+  } else {
+    return "Error on HTTP request";
+  }
+}
+
 void checkBtn1() {
   if (g_btn1Pressed) {
     if (millis() - g_lastUpdateBtn1 > UPDATE_BTN) {
-      Serial.println("Button was pressed");
+      Serial.println("Button pressed");
+
+      String response = postData(BTN_1_PIN, "Food OK");
+      Serial.println(response);
       g_lastUpdateBtn1 = millis();
     }
     g_btn1Pressed = false;
