@@ -29,6 +29,11 @@ int8_t ROTARY_Step_PIN = 2;  // This number depends on your rotary encoder
 // int8_t RTC_SCL_PIN = 22;
 // int8_t RTC_SDA_PIN = 12;
 
+// Stepper Motor
+int8_t STEPPER_DIR_PIN    = 33 ;
+int8_t STEPPER_PIN        = 35;
+int8_t STEPPER_ENABLE_PIN = 4;
+
 // Buttons
 int8_t BTN_1_PIN = 2;
 bool g_btn1Pressed = false;
@@ -62,7 +67,7 @@ void setup() {
   WiFi.begin(WIFI_NAME, WIFI_PASSWORD);
 
   int8_t tries = 1;
-  
+
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
     if (tries <= 10) {
       Serial.print("Tying to connect to the internet... ");
@@ -143,14 +148,21 @@ void setup() {
 
   if (rtc.lostPower()) {
     Serial.println("RTC lost power, let's set the time!");
-    // January 1, 2021 at HH, MM, SS:
-    rtc.adjust(DateTime(2021, 1, 30, 21, 10, 0));
+    // January 1, 2022 at HH, MM, SS:
+    rtc.adjust(DateTime(2022, 1, 30, 21, 10, 0));
   }
 
   // January 1, 2021 at HH, MM, SS:
   // rtc.adjust(DateTime(2021, 1, 30, 21, 10, 0));
 
-  pinMode(BTN_1_PIN, INPUT_PULLUP);
+  pinMode(BTN_1_PIN, INPUT);
+  pinMode(STEPPER_PIN,OUTPUT);
+  pinMode(STEPPER_DIR_PIN, OUTPUT);
+  pinMode(STEPPER_ENABLE_PIN, OUTPUT);
+  digitalWrite(STEPPER_PIN, LOW);
+  digitalWrite(STEPPER_DIR_PIN,  LOW);
+  digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+
   attachInterrupt(digitalPinToInterrupt(BTN_1_PIN), interruptBtn1, RISING);
 }
 
@@ -205,8 +217,9 @@ void checkBtn1() {
     if (millis() - g_lastUpdateBtn1 > UPDATE_BTN) {
       Serial.println("Button pressed");
 
-      String response = postData(BTN_1_PIN, "Food OK");
-      Serial.println(response);
+      // String response = postData(BTN_1_PIN, "Food OK");
+      // Serial.println(response);
+      runStepperMotor(STEPPER_ENABLE_PIN, STEPPER_PIN, STEPPER_DIR_PIN, 0, false, 550, 2000);
       g_lastUpdateBtn1 = millis();
     }
     g_btn1Pressed = false;
@@ -299,4 +312,20 @@ void updateClock() {
     g_year = now.year();
     g_lastUpdateClock = millis();
   }
+}
+
+void runStepperMotor(int enableStepperPin,int stepStepperPin, int dirStepperPin, bool dirStepperMotor, int pos0Stepper, int pos360Stepper, int delayStepperMode ) {
+  digitalWrite(enableStepperPin, LOW);
+  digitalWrite(dirStepperPin, dirStepperMotor);
+  backlightOn();
+  for(pos0Stepper; pos0Stepper < pos360Stepper; pos0Stepper++) {
+    Serial.println(pos0Stepper);
+    digitalWrite(stepStepperPin,HIGH);
+    delayMicroseconds(delayStepperMode);
+    digitalWrite(stepStepperPin,LOW);
+    delayMicroseconds(delayStepperMode);
+  }
+  backlightOff();
+  delay(200);
+  digitalWrite(enableStepperPin, HIGH);
 }
